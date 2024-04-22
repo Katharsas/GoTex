@@ -168,12 +168,25 @@ namespace GoTex
             string pixelFormat = (bitDepth == 24 ? "bgr24" : bitDepth == 32 ? "bgra" : throw new NotImplementedException($"Unexpected bit depth of {bitDepth}."));
             string tgaFile = Path.Combine(TexTempDirectory, $"{TextureName}_M{mipMap}.TGA");
 
+            StringBuilder sb = new StringBuilder();
             Process ffmpeg = new Process();
+            ffmpeg.StartInfo.UseShellExecute = false;
+            ffmpeg.StartInfo.RedirectStandardError = true;
+            ffmpeg.EnableRaisingEvents = true;
+            ffmpeg.ErrorDataReceived += new DataReceivedEventHandler((object sender, DataReceivedEventArgs e) => sb.Append(e.Data));
             ffmpeg.StartInfo.FileName = Path.Combine(Program.AppTempDirectory, "ffmpeg.exe");
-            ffmpeg.StartInfo.Arguments = $@"-i ""{file}"" -vf scale={width}:{height} -vcodec targa -pix_fmt {pixelFormat} -sws_flags lanczos ""{tgaFile}"" -y";
+
+            // .\ffmpeg.exe -f lavfi -i color=white:10x10 -vframes 1 -vcodec targa -pix_fmt bgr24 out.tga
+
+            //ffmpeg.StartInfo.Arguments = $@"-i ""{file}"" -vf ""scale={width}:{height},color=white:format=rgb,format={pixelFormat}[bg]; [bg][0]overlay"" -vcodec targa -pix_fmt {pixelFormat} -sws_flags lanczos ""{tgaFile}"" -y";
+            ffmpeg.StartInfo.Arguments = $@"-f lavfi -i color=white:{width}x{height} -vframes 1 -vcodec targa -pix_fmt {pixelFormat} ""{tgaFile}"" -y";
+
             ffmpeg.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
             ffmpeg.Start();
+            ffmpeg.BeginErrorReadLine();
             ffmpeg.WaitForExit();
+
+            //Console.WriteLine($"ffmpeg output:{Environment.NewLine}{sb.ToString()}");
         }
 
         private void ConvertTgaToDds()
